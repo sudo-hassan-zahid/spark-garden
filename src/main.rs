@@ -3,11 +3,11 @@ mod db;
 use std::collections::HashMap;
 use std::env;
 use std::fs;
-use std::io::{BufRead, BufReader, Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::io::{ BufRead, BufReader, Read, Write };
+use std::net::{ TcpListener, TcpStream };
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::{ Arc, Mutex };
+use std::time::{ SystemTime, UNIX_EPOCH };
 
 #[derive(Clone, Debug)]
 struct Entry {
@@ -46,7 +46,8 @@ fn main() -> std::io::Result<()> {
         fs::create_dir_all(parent)?;
     }
 
-    let entries = db::load_entries(&data_path)
+    let entries = db
+        ::load_entries(&data_path)
         .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err.to_string()))?;
 
     let state = Arc::new(Mutex::new(AppState { entries, data_path }));
@@ -82,9 +83,10 @@ fn healthcheck() -> bool {
     let Ok(mut stream) = TcpStream::connect(target) else {
         return false;
     };
-    if stream
-        .write_all(b"GET /health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
-        .is_err()
+    if
+        stream
+            .write_all(b"GET /health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
+            .is_err()
     {
         return false;
     }
@@ -96,7 +98,9 @@ fn healthcheck() -> bool {
 fn handle_connection(mut stream: TcpStream, state: Arc<Mutex<AppState>>) -> std::io::Result<()> {
     let request = match read_request(&mut stream)? {
         Some(request) => request,
-        None => return Ok(()),
+        None => {
+            return Ok(());
+        }
     };
 
     let response = route(request, state);
@@ -137,11 +141,13 @@ fn read_request(stream: &mut TcpStream) -> std::io::Result<Option<Request>> {
         reader.read_exact(&mut body)?;
     }
 
-    Ok(Some(Request {
-        method,
-        path,
-        body: String::from_utf8_lossy(&body).to_string(),
-    }))
+    Ok(
+        Some(Request {
+            method,
+            path,
+            body: String::from_utf8_lossy(&body).to_string(),
+        })
+    )
 }
 
 fn route(request: Request, state: Arc<Mutex<AppState>>) -> String {
@@ -157,26 +163,41 @@ fn route(request: Request, state: Arc<Mutex<AppState>>) -> String {
         ("POST", "/api/mood") => {
             let params = parse_form(&request.body);
             let mood = clean_field(params.get("mood").map(String::as_str).unwrap_or("bright"), 24);
-            let color = clean_field(params.get("color").map(String::as_str).unwrap_or("#ffcf5a"), 16);
+            let color = clean_field(
+                params.get("color").map(String::as_str).unwrap_or("#ffcf5a"),
+                16
+            );
             let text = clean_field(params.get("text").map(String::as_str).unwrap_or(""), 140);
             add_entry(state, "mood", &mood, &color, &text)
         }
         ("POST", "/api/note") => {
             let params = parse_form(&request.body);
             let text = clean_field(params.get("text").map(String::as_str).unwrap_or(""), 180);
-            let color = clean_field(params.get("color").map(String::as_str).unwrap_or("#7bdff2"), 16);
+            let color = clean_field(
+                params.get("color").map(String::as_str).unwrap_or("#7bdff2"),
+                16
+            );
             add_entry(state, "note", "kind", &color, &text)
         }
         ("POST", "/api/quest") => {
             let params = parse_form(&request.body);
-            let text = clean_field(params.get("text").map(String::as_str).unwrap_or("tiny win"), 120);
+            let text = clean_field(
+                params.get("text").map(String::as_str).unwrap_or("tiny win"),
+                120
+            );
             add_entry(state, "quest", "done", "#c3f584", &text)
         }
         _ => not_found_response(),
     }
 }
 
-fn add_entry(state: Arc<Mutex<AppState>>, kind: &str, mood: &str, color: &str, text: &str) -> String {
+fn add_entry(
+    state: Arc<Mutex<AppState>>,
+    kind: &str,
+    mood: &str,
+    color: &str,
+    text: &str
+) -> String {
     if text.trim().is_empty() && kind != "mood" {
         return error_response("A little text makes this bloom.");
     }
@@ -205,9 +226,11 @@ fn add_entry(state: Arc<Mutex<AppState>>, kind: &str, mood: &str, color: &str, t
 
 fn render_home(state: &AppState) -> String {
     let stats = stats(&state.entries);
-    let note = latest_note(&state.entries).map(|note| escape_html(&note)).unwrap_or_else(|| {
-        "Leave a kind note and the next person gets to find it.".to_string()
-    });
+    let note = latest_note(&state.entries)
+        .map(|note| escape_html(&note))
+        .unwrap_or_else(|| {
+            "Leave a kind note and the next person gets to find it.".to_string()
+        });
     let quest = quest_for_day();
     let petals = garden_petals(&state.entries);
 
@@ -285,7 +308,9 @@ fn render_home(state: &AppState) -> String {
   <script src="/app.js"></script>
 </body>
 </html>"##,
-        stats.moods, stats.quests, stats.notes
+        stats.moods,
+        stats.quests,
+        stats.notes
     )
 }
 
@@ -300,9 +325,15 @@ fn stats(entries: &[Entry]) -> Stats {
     let mut stats = Stats::default();
     for entry in entries {
         match entry.kind.as_str() {
-            "mood" => stats.moods += 1,
-            "note" => stats.notes += 1,
-            "quest" => stats.quests += 1,
+            "mood" => {
+                stats.moods += 1;
+            }
+            "note" => {
+                stats.notes += 1;
+            }
+            "quest" => {
+                stats.quests += 1;
+            }
             _ => {}
         }
     }
@@ -319,35 +350,46 @@ fn latest_note(entries: &[Entry]) -> Option<String> {
 
 fn garden_petals(entries: &[Entry]) -> String {
     let mut html = String::new();
-    let moods: Vec<&Entry> = entries.iter().filter(|entry| entry.kind == "mood").rev().take(42).collect();
+    let moods: Vec<&Entry> = entries
+        .iter()
+        .filter(|entry| entry.kind == "mood")
+        .rev()
+        .take(42)
+        .collect();
 
     if moods.is_empty() {
         for i in 0..18 {
-            let x = 8 + (i * 19) % 84;
-            let y = 14 + (i * 29) % 72;
-            let delay = (i % 7) as f32 * 0.18;
-            html.push_str(&format!(
-                r#"<span class="petal ghost" style="--x:{}%;--y:{}%;--c:#d8f3dc;--d:{}s"></span>"#,
-                x, y, delay
-            ));
+            let x = 8 + ((i * 19) % 84);
+            let y = 14 + ((i * 29) % 72);
+            let delay = ((i % 7) as f32) * 0.18;
+            html.push_str(
+                &format!(
+                    r#"<span class="petal ghost" style="--x:{}%;--y:{}%;--c:#d8f3dc;--d:{}s"></span>"#,
+                    x,
+                    y,
+                    delay
+                )
+            );
         }
         return html;
     }
 
     for (i, entry) in moods.iter().enumerate() {
-        let x = 7 + (i * 17 + entry.ts as usize % 11) % 86;
-        let y = 10 + (i * 23 + entry.ts as usize % 13) % 76;
-        let size = 18 + (entry.mood.len() * 3 + i) % 28;
-        let delay = (i % 9) as f32 * 0.12;
-        html.push_str(&format!(
-            r#"<span class="petal" title="{}" style="--x:{}%;--y:{}%;--s:{}px;--c:{};--d:{}s"></span>"#,
-            escape_html(&entry.mood),
-            x,
-            y,
-            size,
-            escape_html(&entry.color),
-            delay
-        ));
+        let x = 7 + ((i * 17 + ((entry.ts as usize) % 11)) % 86);
+        let y = 10 + ((i * 23 + ((entry.ts as usize) % 13)) % 76);
+        let size = 18 + ((entry.mood.len() * 3 + i) % 28);
+        let delay = ((i % 9) as f32) * 0.12;
+        html.push_str(
+            &format!(
+                r#"<span class="petal" title="{}" style="--x:{}%;--y:{}%;--s:{}px;--c:{};--d:{}s"></span>"#,
+                escape_html(&entry.mood),
+                x,
+                y,
+                size,
+                escape_html(&entry.color),
+                delay
+            )
+        );
     }
     html
 }
@@ -384,7 +426,7 @@ fn clean_field(value: &str, max_chars: usize) -> String {
     value
         .trim()
         .chars()
-        .filter(|ch| !ch.is_control() || *ch == '\n')
+        .filter(|ch| (!ch.is_control() || *ch == '\n'))
         .take(max_chars)
         .collect()
 }
@@ -451,7 +493,7 @@ fn error_response(message: &str) -> String {
     response(
         "422 Unprocessable Entity",
         "application/json; charset=utf-8",
-        &format!(r#"{{"error":"{}"}}"#, escape_json(message)),
+        &format!(r#"{{"error":"{}"}}"#, escape_json(message))
     )
 }
 
@@ -459,7 +501,7 @@ fn server_error_response(message: &str) -> String {
     response(
         "500 Internal Server Error",
         "application/json; charset=utf-8",
-        &format!(r#"{{"error":"{}"}}"#, escape_json(message)),
+        &format!(r#"{{"error":"{}"}}"#, escape_json(message))
     )
 }
 
@@ -482,11 +524,7 @@ fn now() -> u64 {
 }
 
 fn escape_html(value: &str) -> String {
-    value
-        .replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
+    value.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
 }
 
 fn escape_json(value: &str) -> String {
@@ -505,7 +543,8 @@ fn escape_json(value: &str) -> String {
     out
 }
 
-const APP_JS: &str = r#"
+const APP_JS: &str =
+    r#"
 const garden = document.querySelector('#garden');
 const moodCount = document.querySelector('#moods');
 const noteCount = document.querySelector('#notes');
@@ -547,7 +586,8 @@ document.querySelectorAll('form[data-action]').forEach((form) => {
 });
 "#;
 
-const STYLES: &str = r#"
+const STYLES: &str =
+    r#"
 :root {
   color-scheme: light;
   --ink: #202124;
