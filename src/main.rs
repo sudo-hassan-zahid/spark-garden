@@ -1,9 +1,11 @@
+mod db;
+
 use std::collections::HashMap;
 use std::env;
-use std::fs::{self, OpenOptions};
+use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -37,17 +39,17 @@ fn main() -> std::io::Result<()> {
     }
 
     let addr = env::var("SPARK_ADDR").unwrap_or_else(|_| "127.0.0.1:8080".to_string());
-    let data_path = env::var("SPARK_DATA").unwrap_or_else(|_| "data/spark-garden.tsv".to_string());
+    let data_path = env::var("SPARK_DATA").unwrap_or_else(|_| "data/spark-garden.redb".to_string());
     let data_path = PathBuf::from(data_path);
 
     if let Some(parent) = data_path.parent() {
         fs::create_dir_all(parent)?;
     }
 
-    let state = Arc::new(Mutex::new(AppState {
-        entries: load_entries(&data_path),
-        data_path,
-    }));
+    let entries = db::load_entries(&data_path)
+        .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err.to_string()))?;
+
+    let state = Arc::new(Mutex::new(AppState { entries, data_path }));
 
     let listener = TcpListener::bind(&addr)?;
     println!("Spark Garden is growing at http://{addr}");
@@ -188,7 +190,7 @@ fn add_entry(state: Arc<Mutex<AppState>>, kind: &str, mood: &str, color: &str, t
         ts: now(),
     };
 
-    if let Err(err) = append_entry(&state.data_path, &entry) {
+    if let Err(err) = db::append_entry(&state.data_path, &entry) {
         return server_error_response(&format!("Could not save entry: {err}"));
     }
 
@@ -365,42 +367,6 @@ fn quest_for_day() -> &'static str {
     QUESTS[(day as usize) % QUESTS.len()]
 }
 
-fn load_entries(path: &Path) -> Vec<Entry> {
-    let Ok(contents) = fs::read_to_string(path) else {
-        return Vec::new();
-    };
-
-    contents
-        .lines()
-        .filter_map(|line| {
-            let parts: Vec<&str> = line.split('\t').collect();
-            if parts.len() != 5 {
-                return None;
-            }
-            Some(Entry {
-                ts: parts[0].parse().ok()?,
-                kind: unescape_tsv(parts[1]),
-                mood: unescape_tsv(parts[2]),
-                color: unescape_tsv(parts[3]),
-                text: unescape_tsv(parts[4]),
-            })
-        })
-        .collect()
-}
-
-fn append_entry(path: &Path, entry: &Entry) -> std::io::Result<()> {
-    let mut file = OpenOptions::new().create(true).append(true).open(path)?;
-    writeln!(
-        file,
-        "{}\t{}\t{}\t{}\t{}",
-        entry.ts,
-        escape_tsv(&entry.kind),
-        escape_tsv(&entry.mood),
-        escape_tsv(&entry.color),
-        escape_tsv(&entry.text)
-    )
-}
-
 fn parse_form(body: &str) -> HashMap<String, String> {
     let mut map = HashMap::new();
     for pair in body.split('&') {
@@ -534,33 +500,6 @@ fn escape_json(value: &str) -> String {
             '\t' => out.push_str("\\t"),
             ch if ch.is_control() => {}
             ch => out.push(ch),
-        }
-    }
-    out
-}
-
-fn escape_tsv(value: &str) -> String {
-    value
-        .replace('\\', "\\\\")
-        .replace('\t', "\\t")
-        .replace('\n', "\\n")
-        .replace('\r', "")
-}
-
-fn unescape_tsv(value: &str) -> String {
-    let mut out = String::new();
-    let mut chars = value.chars();
-    while let Some(ch) = chars.next() {
-        if ch == '\\' {
-            match chars.next() {
-                Some('t') => out.push('\t'),
-                Some('n') => out.push('\n'),
-                Some('\\') => out.push('\\'),
-                Some(other) => out.push(other),
-                None => {}
-            }
-        } else {
-            out.push(ch);
         }
     }
     out
