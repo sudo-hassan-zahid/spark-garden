@@ -210,7 +210,7 @@ fn render_home(state: &AppState) -> String {
     let petals = garden_petals(&state.entries);
 
     format!(
-        r#"<!doctype html>
+        r##"<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -282,7 +282,7 @@ fn render_home(state: &AppState) -> String {
   </main>
   <script src="/app.js"></script>
 </body>
-</html>"#,
+</html>"##,
         stats.moods, stats.quests, stats.notes
     )
 }
