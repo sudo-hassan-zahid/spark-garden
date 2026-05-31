@@ -3,12 +3,15 @@
 ![Rust](https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 ![Debian](https://img.shields.io/badge/Debian-A81D33?style=for-the-badge&logo=debian&logoColor=white)
+![redb](https://img.shields.io/badge/redb-Embedded%20DB-7A3E9D?style=for-the-badge)
+![No Paid APIs](https://img.shields.io/badge/No%20Paid%20APIs-2F7D5C?style=for-the-badge)
+![No Node](https://img.shields.io/badge/No%20Node-202124?style=for-the-badge)
 
 Spark Garden is a full-stack Rust web app that runs entirely inside Docker.
 
 It is a small shared daily ritual: visitors plant their current mood, complete one tiny feel-good quest, and leave an anonymous kind note for the next person. Every mood becomes part of a living garden on the page.
 
-No accounts. No ads. No paid subscriptions. No external services.
+No accounts. No ads. No paid subscriptions. No external services. Data is stored in a local embedded database file.
 
 ## Purpose
 
@@ -28,7 +31,8 @@ It is good as:
 | Language | Rust | Entire app server is Rust |
 | Backend | Rust standard library | TCP HTTP server, routing, request parsing |
 | Frontend | Rust-rendered HTML, CSS, vanilla JS | No React, no Node, no bundler |
-| Persistence | Local TSV file | Stored at `./data/spark-garden.tsv` through Docker volume |
+| Database | `redb` | Embedded Rust key-value database |
+| Persistence | Local `.redb` file | Stored at `./data/spark-garden.redb` through Docker volume |
 | Runtime | Docker Compose | One command build and run |
 | Build image | `rust:1.87-slim` | Rust compiler lives inside Docker |
 | Runtime image | `debian:bookworm-slim` | Small Debian runtime container |
@@ -40,7 +44,7 @@ It is good as:
 - Anonymous kindness notes
 - Server-rendered first page
 - JSON API updates without page reload
-- File-backed persistence
+- Embedded database persistence
 - Docker healthcheck
 - No local Rust installation required
 - No paid API keys or cloud dependencies
@@ -103,10 +107,10 @@ docker compose down
 5. Leave a kind anonymous note for the next visitor.
 6. Watch the garden grow as people interact with it.
 
-The app saves entries locally in:
+The app saves entries locally in an embedded database file:
 
 ```text
-data/spark-garden.tsv
+data/spark-garden.redb
 ```
 
 That file is created automatically when the container runs.
@@ -131,7 +135,7 @@ The container uses these environment variables:
 | Variable | Default | Description |
 | --- | --- | --- |
 | `SPARK_ADDR` | `0.0.0.0:8080` | Address the server binds to |
-| `SPARK_DATA` | `/app/data/spark-garden.tsv` | Persistence file inside the container |
+| `SPARK_DATA` | `/app/data/spark-garden.redb` | Embedded database file inside the container |
 
 They are already set in `docker-compose.yml`.
 
@@ -148,7 +152,7 @@ Main pieces:
 - `main`: starts the server and loads persisted entries
 - `route`: handles HTTP routes
 - `render_home`: renders the HTML app
-- `append_entry`: persists new entries
+- `src/db.rs`: opens `redb`, loads entries, and persists new entries
 - `APP_JS`: frontend behavior
 - `STYLES`: full visual design
 
@@ -211,7 +215,7 @@ The folder will be recreated on the next run.
 
 ## Privacy
 
-Spark Garden stores all data locally on your machine in the Docker-mounted `data` folder. It does not send anything to paid APIs, analytics platforms, cloud databases, or third-party services.
+Spark Garden stores all data locally on your machine in the Docker-mounted `data` folder. It uses `redb`, an embedded database, so there is no hosted database account or external database server. It does not send anything to paid APIs, analytics platforms, cloud databases, or third-party services.
 
 ## License
 
