@@ -7,5 +7,5 @@ services:
       - ./data:/app/data
     environment:
       SPARK_ADDR: 0.0.0.0:8080
-      SPARK_DATA: /app/data/spark-garden.tsv
+      SPARK_DATA: /app/data/spark-garden.redb
     restart: unless-stopped
